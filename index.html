@@ -586,9 +586,26 @@ function formatNumberWithCommas(str) {
     return parseInt(clean, 10).toLocaleString('en-US');
 }
 
+function formatDecimalWithCommas(str) {
+    let clean = str.replace(/[^\d.]/g, '');
+    let parts = clean.split('.');
+    if (parts.length > 2) {
+        clean = parts[0] + '.' + parts.slice(1).join('');
+        parts = clean.split('.');
+    }
+    let intPart = parts[0];
+    if (intPart) {
+        intPart = parseInt(intPart, 10).toLocaleString('en-US');
+    }
+    if (parts.length > 1) {
+        return intPart + '.' + parts[1];
+    }
+    return intPart;
+}
+
 function getRawNumber(str) {
     if (!str) return 0;
-    return parseInt(String(str).replace(/,/g, ''), 10) || 0;
+    return parseFloat(String(str).replace(/,/g, '')) || 0;
 }
 
 function updateDocumentTitle() {
@@ -625,7 +642,11 @@ document.addEventListener('input', function(e) {
 
     if (target.type === 'text') {
         if (target.classList.contains('js-numeric-input')) {
-            target.value = formatNumberWithCommas(target.value);
+            if (fieldId.endsWith('_qty') || fieldId.endsWith('_price')) {
+                target.value = formatDecimalWithCommas(target.value);
+            } else {
+                target.value = formatNumberWithCommas(target.value);
+            }
         }
 
         const allInputsOfField = document.querySelectorAll(`input[data-field="${fieldId}"]`);
@@ -708,7 +729,7 @@ function autoCalculateRowAmtAndTax(rowIdx) {
     if (qtyVal !== '' && priceVal !== '') {
         const qty = getRawNumber(qtyVal);
         const price = getRawNumber(priceVal);
-        const totalAmt = qty * price;
+        const totalAmt = Math.round(qty * price);
 
         amtFields.forEach(input => {
             input.value = totalAmt.toLocaleString('en-US');
