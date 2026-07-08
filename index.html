@@ -406,6 +406,9 @@ input[type="checkbox"]:checked::after {
         <span>銷貨折讓單編輯系統</span>
     </div>
     <div class="control-actions">
+        <button class="btn clear-btn" onclick="clearAllData()">
+            <i data-lucide="eraser"></i> 全部清除
+        </button>
         <button class="btn print-btn" onclick="window.print()">
             <i data-lucide="printer"></i> 轉出 PDF
         </button>
@@ -807,6 +810,12 @@ function clearSellerAction() {
     });
     document.getElementById('sellerStatus').innerHTML = '';
     updateDocumentTitle();
+}
+
+function clearAllData() {
+    clearSellerAction();
+    clearMiddleRows();
+    clearBuyerAction();
 }
 
 async function fetchCompanyData(taxId, type) {
