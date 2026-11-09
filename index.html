@@ -22,10 +22,10 @@
     --btn-clear: #D3CDC6;
 }
 
-/* 設定列印頁面邊界為精準的 0.5 公分 */
+/* 列印頁面邊界設為 0，版面以整張 A4（210×297mm）計算，中線固定在 148.5mm */
 @page {
     size: A4 portrait;
-    margin: 0.5cm;
+    margin: 0;
 }
 
 body {
@@ -79,6 +79,30 @@ body {
     transition: background 0.2s;
     font-weight: 500;
 }
+
+.shift-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #4A4A4A;
+    margin-right: 6px;
+    white-space: nowrap;
+}
+.shift-field svg { width: 16px; height: 16px; }
+.shift-field input {
+    width: 56px;
+    padding: 5px 6px;
+    border: 1px solid var(--btn-clear);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    text-align: center;
+    color: #333;
+    background: #FAFAF8;
+    outline: none;
+}
+.shift-field input:focus { border-color: var(--btn-bg); }
 
 .clear-btn { background-color: var(--btn-clear); color: #333; }
 .clear-btn:hover { background-color: #C0B9B0; }
@@ -342,37 +366,48 @@ input[type="checkbox"]:checked::after {
     /* 列印時隱藏側邊的清除按鈕 */
     .side-clear-btn { display: none !important; }
     
+    /* 每頁為整張 A4，上下兩聯各 148.5mm（正好一半） */
     .print-page {
         display: block !important;
-        height: 287mm !important;
-        width: 200mm !important;
+        height: 297mm !important;
+        width: 210mm !important;
         page-break-after: always;
         box-sizing: border-box;
         position: relative;
+        overflow: hidden;
     }
-    
+    .print-page:last-child { page-break-after: auto; }
+
+    /* 內容區維持原本 182×123.5mm，多出的 5mm 紙邊平均分配到外圍 */
     .document-container {
         display: flex !important;
-        width: 200mm !important;
-        height: 143.5mm !important;
+        width: 210mm !important;
+        height: 148.5mm !important;
         margin: 0 !important;
-        padding: 10mm 8mm 10mm 10mm !important;
+        padding: 12.5mm 13mm 12.5mm 15mm !important;
         box-shadow: none !important;
         border: none !important;
         box-sizing: border-box !important;
         page-break-inside: avoid;
+        top: calc(var(--print-shift, 0mm) * -1); /* 印表機補正：正數往上移 */
     }
-    
+
     .document-container:nth-child(1) { border-bottom: none !important; }
-    
-    /* 使用偽元素在底部畫一條對齊表格寬度的虛線 */
-    .document-container:nth-child(1)::after {
+
+    /* 側邊聯別文字與紙張右緣距離維持原本 7mm */
+    .side-note { right: 7mm; }
+
+    /* 裁切虛線：以紙張頂端為基準固定在 148.5mm，線的中心正好落在 A4 正中央，橫跨整張紙寬 */
+    .print-page::after {
         content: '';
         position: absolute;
-        bottom: 0;
-        left: 10mm;
-        right: 8mm;
-        border-bottom: 0.75pt dashed #000000;
+        top: calc(148.5mm - var(--print-shift, 0mm));
+        left: 0;
+        right: 0;
+        height: 0;
+        border-top: 0.75pt dashed #000000;
+        transform: translateY(-50%);
+        z-index: 5;
     }
     
     input[type="text"] { background: transparent !important; }
@@ -406,6 +441,12 @@ input[type="checkbox"]:checked::after {
         <span>銷貨折讓單編輯系統</span>
     </div>
     <div class="control-actions">
+        <label class="shift-field" title="印出的虛線偏低就填正數（往上移），偏高填負數">
+            <i data-lucide="move-vertical"></i>
+            <span>印表機補正</span>
+            <input type="number" id="printShiftInput" step="0.5" min="-10" max="10" aria-label="列印上下補正（毫米，正數往上）">
+            <span>mm</span>
+        </label>
         <button class="btn clear-btn" onclick="clearAllData()">
             <i data-lucide="eraser"></i> 全部清除
         </button>
@@ -419,7 +460,7 @@ input[type="checkbox"]:checked::after {
 
 <div class="system-footer">
     <div>【免責聲明】本網頁為純前端本機工具，所有登打之資料僅供瀏覽器暫存運算，系統絕不會傳輸、記錄或儲存任何您的隱私資料與商業機密，請安心使用。</div>
-    <div>最後修改日期：2026 年 07 月 07 日</div>
+    <div>最後修改日期：2026 年 11 月 09 日</div>
 </div>
 
 <script>
@@ -579,6 +620,31 @@ for (let page = 1; page <= 2; page++) {
 }
 document.getElementById('formsWrapper').innerHTML = htmlBuffer;
 lucide.createIcons();
+
+// --- 印表機補正：整份內容與裁切線一起上下平移，數值記在本機瀏覽器 ---
+const PRINT_SHIFT_KEY = 'printShiftMm';
+const PRINT_SHIFT_DEFAULT = 3;
+const printShiftInput = document.getElementById('printShiftInput');
+
+function applyPrintShift(mm) {
+    document.documentElement.style.setProperty('--print-shift', mm + 'mm');
+}
+
+(function initPrintShift() {
+    let saved = null;
+    try { saved = localStorage.getItem(PRINT_SHIFT_KEY); } catch (e) {}
+    const val = (saved !== null && saved !== '' && !isNaN(parseFloat(saved))) ? parseFloat(saved) : PRINT_SHIFT_DEFAULT;
+    printShiftInput.value = val;
+    applyPrintShift(val);
+})();
+
+printShiftInput.addEventListener('input', function() {
+    let val = parseFloat(this.value);
+    if (isNaN(val)) val = 0;
+    val = Math.max(-10, Math.min(10, val));
+    applyPrintShift(val);
+    try { localStorage.setItem(PRINT_SHIFT_KEY, String(val)); } catch (e) {}
+});
 
 function formatNumberWithCommas(str) {
     let clean = str.replace(/\D/g, '');
